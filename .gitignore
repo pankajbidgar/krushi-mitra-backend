@@ -1,0 +1,16 @@
+# environment variables
+.env
+
+# node modules (if Node.js)
+node_modules/
+
+# python (if Python)
+venv/
+__pycache__/
+
+# logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
