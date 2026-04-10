@@ -13,3 +13,4 @@ requests
 google-generativeai
 pillow
 qrcode[pil]
+email-validator          # ✅ ही ओळ जोडा
