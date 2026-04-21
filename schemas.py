@@ -192,3 +192,164 @@ class CropRecommendationRequest(BaseModel):
 
 
 # 579b464db66ec23bdd000001cdd3946e44ce4aad7209ff7b23ac571b
+
+
+
+class FarmExpenseCreate(BaseModel):
+    land_name: Optional[str] = None
+    crop_name: Optional[str] = None
+    category: str
+    description: Optional[str] = None
+    quantity: Optional[float] = None
+    unit: Optional[str] = None
+    amount: float
+    payment_method: Optional[str] = "cash"
+    receipt_url: Optional[str] = None
+    date: date
+    is_recurring: Optional[bool] = False
+    recurring_interval: Optional[str] = None
+    payment_status: Optional[str] = "paid" 
+
+class FarmExpenseOut(BaseModel):
+    id: int
+    land_name: Optional[str]
+    crop_name: Optional[str]
+    category: str
+    description: Optional[str]
+    quantity: Optional[float]
+    unit: Optional[str]
+    amount: float
+    payment_method: Optional[str]
+    receipt_url: Optional[str]
+    date: date
+    is_recurring: Optional[bool] = False
+    recurring_interval: Optional[str]
+    payment_status: Optional[str] = "paid"
+
+
+
+class ProfitLossResponse(BaseModel):
+    total_revenue: float
+    total_expenses: float
+    profit: float
+    expense_breakdown: dict               # category wise
+    land_breakdown: dict                  # land_name wise
+    crop_breakdown: dict                  # crop_name wise
+
+
+
+
+
+from datetime import date
+
+class FarmTaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    crop_name: Optional[str] = None
+    land_name: Optional[str] = None
+    due_date: date
+
+class FarmTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    crop_name: Optional[str] = None
+    land_name: Optional[str] = None
+    due_date: Optional[date] = None
+    status: Optional[str] = None
+
+class FarmTaskOut(BaseModel):
+    id: int
+    title: str
+    description: Optional[str]
+    crop_name: Optional[str]
+    land_name: Optional[str]
+    due_date: date
+    status: str
+    created_at: datetime
+
+
+from typing import Dict, List, Optional
+from datetime import date, datetime
+
+class ProfitReportFilter(BaseModel):
+    start_date: Optional[date] = None
+    end_date: Optional[date] = None
+    crop_name: Optional[str] = None
+    land_name: Optional[str] = None
+
+class MonthlyProfit(BaseModel):
+    month: str  # "2025-01"
+    revenue: float
+    expenses: float
+    profit: float
+
+class ProfitReportResponse(BaseModel):
+    total_revenue: float
+    total_expenses: float
+    profit: float
+    monthly_breakdown: List[MonthlyProfit]
+    crop_breakdown: Dict[str, float]   # crop_name -> profit (revenue - expenses for that crop)
+    land_breakdown: Dict[str, float]   # land_name -> profit
+    expense_breakdown: Dict[str, float]  # category wise expenses
+
+
+
+
+
+from datetime import date
+
+class IrrigationScheduleCreate(BaseModel):
+    land_name: Optional[str] = None
+    crop_name: Optional[str] = None
+    irrigation_method: str = "drip"
+    last_irrigation_date: Optional[date] = None
+    next_irrigation_date: date
+    interval_days: int = 3
+    is_active: bool = True
+
+class IrrigationScheduleUpdate(BaseModel):
+    land_name: Optional[str] = None
+    crop_name: Optional[str] = None
+    irrigation_method: Optional[str] = None
+    last_irrigation_date: Optional[date] = None
+    next_irrigation_date: Optional[date] = None
+    interval_days: Optional[int] = None
+    is_active: Optional[bool] = None
+
+class IrrigationScheduleOut(BaseModel):
+    id: int
+    land_name: Optional[str]
+    crop_name: Optional[str]
+    irrigation_method: str
+    last_irrigation_date: Optional[date]
+    next_irrigation_date: date
+    interval_days: int
+    is_active: bool
+    created_at: datetime
+
+
+
+class YieldPredictionRequest(BaseModel):
+    crop_name: str
+    land_area: float  # in hectares
+    soil_type: Optional[str] = None
+    seed_type: Optional[str] = None
+    irrigation_method: Optional[str] = None
+    season: Optional[str] = None  # हंगाम (उदा. रब्बी, खरीफ)
+
+class YieldPredictionResponse(BaseModel):
+    predicted_yield: float  # in kilograms
+    confidence: Optional[float] = None  # model confidence score (0-1)
+    factors:List[str]
+
+
+class YieldPredictionOut(BaseModel):
+    id: int
+    crop_name: str
+    land_area: float
+    soil_type: Optional[str]
+    seed_type: Optional[str]
+    irrigation_method: Optional[str]
+    season: Optional[str]
+    predicted_yield: Optional[float]
+    created_at: datetime

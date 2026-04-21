@@ -17,5 +17,5 @@ admin = User(
 db.add(admin)
 db.commit()
 print("✅ Admin user created successfully!")
-print("Email: admin@example.com")
-print("Password: admin123")
+print("Email: admin@gmail.com")
+print("Password: 1234")

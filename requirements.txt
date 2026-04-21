@@ -15,4 +15,5 @@ pillow
 qrcode[pil]
 email-validator   
 razorpay 
+alembic
       

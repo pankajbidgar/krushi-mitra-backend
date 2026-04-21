@@ -26,8 +26,15 @@ class User(Base):
     products = relationship("Product" ,back_populates="farmer")
     reviews = relationship("Review", back_populates="user")
     orders = relationship("Order", back_populates="buyer")
+    expenses = relationship("FarmExpense", back_populates="farmer", cascade="all, delete-orphan")
+    tasks = relationship("FarmTask", back_populates="farmer", cascade="all, delete-orphan")
+    irrigation_schedules = relationship("IrrigationSchedule", back_populates="farmer", cascade="all, delete-orphan")
+    yield_predictions = relationship("YieldPrediction", back_populates="farmer", cascade="all, delete-orphan")
 
 from sqlalchemy import JSON
+
+
+
 class Product(Base):
     __tablename__ = "products"
 
@@ -107,3 +114,82 @@ class ChatMessage(Base):
 
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])
+
+
+
+
+
+
+class FarmExpense(Base):
+    __tablename__ = "farm_expenses"
+    id = Column(Integer, primary_key=True, index=True)
+    farmer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    land_name = Column(String, nullable=True)           # शेताचे नाव / तुकडा
+    crop_name = Column(String, nullable=True)           # पीक (टोमॅटो, कांदा)
+    category = Column(String, nullable=False)           # seeds, fertilizer, labor, equipment, other
+    description = Column(String, nullable=True)         # तपशील
+    quantity = Column(Float, nullable=True)             # प्रमाण (kg, liter, etc.)
+    unit = Column(String, nullable=True)                # kg, liter, piece
+    amount = Column(Float, nullable=False)              # एकूण रक्कम
+    payment_method = Column(String, default="cash")     # cash, bank, credit
+    receipt_url = Column(String, nullable=True)         # पावतीचा फोटो URL
+    date = Column(Date, nullable=False)
+    is_recurring = Column(Boolean, default=False)       # आवर्ती खर्च?
+    recurring_interval = Column(String, nullable=True)  # monthly, yearly
+    created_at = Column(DateTime, default=datetime.utcnow)
+    payment_status = Column(String, default="paid")  # paid, pending
+
+    farmer = relationship("User", back_populates="expenses")
+
+
+
+
+
+
+class FarmTask(Base):
+    __tablename__ = "farm_tasks"
+    id = Column(Integer, primary_key=True, index=True)
+    farmer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    crop_name = Column(String, nullable=True)
+    land_name = Column(String, nullable=True)
+    due_date = Column(Date, nullable=False)
+    status = Column(String, default="pending")  # pending, completed
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    farmer = relationship("User", back_populates="tasks")
+
+
+
+class IrrigationSchedule(Base):
+    __tablename__ = "irrigation_schedules"
+    id = Column(Integer, primary_key=True, index=True)
+    farmer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    land_name = Column(String, nullable=True)          # शेताचे नाव
+    crop_name = Column(String, nullable=True)          # पीक
+    irrigation_method = Column(String, default="drip") # drip, sprinkler, flood
+    last_irrigation_date = Column(Date, nullable=True)
+    next_irrigation_date = Column(Date, nullable=False)
+    interval_days = Column(Integer, default=3)         # किती दिवसांनी सिंचन करायचे
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    farmer = relationship("User", back_populates="irrigation_schedules")
+
+
+
+class YieldPrediction(Base):
+    __tablename__ = "yield_predictions"
+    id = Column(Integer, primary_key=True, index=True)
+    farmer_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    crop_name = Column(String, nullable=False)
+    land_area = Column(Float, nullable=False)  # शेताचे क्षेत्रफळ (हेक्टरीमध्ये)
+    soil_type = Column(String, nullable=True)  # मातीचा प्रकार
+    seed_type = Column(String, nullable=True)  # बियाण्याचा प्रकार
+    irrigation_method = Column(String, nullable=True)  # सिंचन पद्धत
+    season= Column(String, nullable=True)  # हंगाम (उदा. रब्बी, खरीफ)
+    predicted_yield = Column(Float, nullable=True)  # अंदाजे उत्पादन (किलोमध्ये)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    farmer = relationship("User",back_populates="yield_predictions")

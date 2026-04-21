@@ -75,7 +75,7 @@ def get_current_user(db: Session = Depends(get_db), token: str = Depends(oauth2_
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_identifier = payload.get("sub")
         if user_identifier is None:
-            raise credentials_exception
+            raise credentials_exceptions
     except JWTError:
         raise credentials_exception
     
