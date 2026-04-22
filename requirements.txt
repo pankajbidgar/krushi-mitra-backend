@@ -22,7 +22,7 @@
 # fpdf2
 # apscheduler
 
-
+python==3.11.9
 fastapi==0.110.0
 uvicorn[standard]==0.29.0
 
