@@ -16,4 +16,6 @@ qrcode[pil]
 email-validator   
 razorpay 
 alembic
-      
+reportlab arabic-reshaper python-bidi 
+fpdf2
+apscheduler
