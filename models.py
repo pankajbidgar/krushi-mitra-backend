@@ -54,7 +54,7 @@ class Product(Base):
     # रिलेशनशिप (User शी)
     farmer = relationship("User", back_populates="products")
     reviews = relationship("Review", back_populates="product", cascade="all, delete-orphan")
-
+    auction = relationship("Auction", back_populates="product", uselist=False, cascade="all, delete-orphan")
 
 from datetime import datetime
 
@@ -193,3 +193,57 @@ class YieldPrediction(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     farmer = relationship("User",back_populates="yield_predictions")
+
+
+
+
+class Auction(Base):
+    __tablename__ = "auctions"
+    id = Column(Integer, primary_key=True, index=True)
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
+    seller_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    starting_bid = Column(Float, nullable=False)
+    current_bid = Column(Float, nullable=True)
+    highest_bidder_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    # start_time = Column(DateTime, nullable=False)
+    start_time = Column(DateTime, nullable=False, default=datetime.utcnow)
+    end_time = Column(DateTime, nullable=False)
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    status = Column(String, default="active")  # active, completed, cancelled   
+    winner_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    winner = relationship("User", foreign_keys=[winner_id])
+
+    product = relationship("Product",back_populates="auction")
+    seller = relationship("User", foreign_keys=[seller_id])
+    highest_bidder = relationship("User", foreign_keys=[highest_bidder_id])
+    bids = relationship("AuctionBid", back_populates="auction", cascade="all, delete-orphan")
+
+
+class AuctionBid(Base):
+    __tablename__="auction_bids"
+    id = Column(Integer, primary_key=True, index=True)
+    auction_id = Column(Integer, ForeignKey("auctions.id"), nullable=False)
+    bidder_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    auction = relationship("Auction", back_populates="bids")
+    bidder = relationship("User", foreign_keys=[bidder_id])
+
+
+
+
+class GovScheme(Base):
+    __tablename__ = "gov_schemes"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)           # योजना का नाव
+    description = Column(Text, nullable=True)      # योजना का तपशील
+    eligibility = Column(Text, nullable=True)      # पात्रता निकष
+    benefits = Column(Text, nullable=True)         # योजना का लाभ
+    apply_link = Column(String, nullable=True)      # अर्ज करण्याचा लिंक
+    category = Column(String, nullable=True)         # योजना का प्रकार (उदा. कर्ज, सबसिडी, प्रशिक्षण)
+    crop_type = Column(String, nullable=True)       # योजना कोणत्या पिकांसाठी आहे (उदा. धान्य, भाजी)
+    min_land_area = Column(Float, nullable=True)       # किमान शेताचे क्षेत्रफळ
+    created_at = Column(DateTime, default=datetime.utcnow)

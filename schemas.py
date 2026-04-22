@@ -353,3 +353,61 @@ class YieldPredictionOut(BaseModel):
     season: Optional[str]
     predicted_yield: Optional[float]
     created_at: datetime
+
+
+
+class AuctionCreate(BaseModel):
+    product_id: int
+    starting_bid: float
+    end_time: datetime
+
+class AuctionBidCreate(BaseModel):
+
+    amount: float
+
+
+class AuctionOut(BaseModel):
+    id: int
+    product_id: int
+    product_name:str
+    seller_id:int
+    seller_name:str
+    starting_bid:float
+    current_bid:float
+    highest_bidder_id:Optional[int]
+    highest_bidder_name:Optional[str]
+    end_time: datetime
+    start_time: datetime
+    is_active: bool
+    bid_count: int
+
+    status : str
+    winner_id: Optional[int]
+    winner_name: Optional[str]
+
+
+class AuctionBidOut(BaseModel):
+    id: int
+    auction_id: int
+    bidder_id: int
+    bidder_name: str
+    amount: float
+    created_at: datetime    
+
+
+
+class SchemeFinderInput(BaseModel):
+    crop_name:str
+    land_area:float
+    district:Optional[str] = None
+    annual_income:Optional[float] = None
+    
+
+class GovSchemeOut(BaseModel):
+    id:int
+    name:str
+    description:Optional[str]
+    eligibility:Optional[str]
+    benefits:Optional[str]
+    apply_link:Optional[str]
+    category:Optional[str]

@@ -63,9 +63,11 @@ def fallback_response(prompt: str) -> str:
 def get_ai_response(prompt: str) -> str:
     """Gemini API वापरून उत्तर मिळवा; अपयश आल्यास फॉलबॅक."""
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-1.5-flash')  # किंवा 'gemini-2.5-flash'
         response = model.generate_content(prompt)
         return response.text
     except Exception as e:
         print(f"AI error: {e}")
         return fallback_response(prompt)
+    
+

@@ -1105,7 +1105,7 @@ def clear_chat(
 from utils.otp import generate_otp
 from utils.otp_store import otp_store
 from utils.email import send_otp_email
-from schemas import CropRecommendationRequest, EmailRequest, ResetPasswordRequest, VerifyOtpRequest, YieldPredictionRequest
+from schemas import AuctionBidCreate, CropRecommendationRequest, EmailRequest, ResetPasswordRequest, VerifyOtpRequest, YieldPredictionRequest
 from auth import get_Password_hashed, get_current_farmer
 
 @app.post("/forgot-password/send-otp")
@@ -2435,6 +2435,536 @@ def get_yield_history(
     return history
 
 
+from models import Auction,AuctionBid
+from schemas import AuctionCreate, AuctionOut
+
+
+# @app.post("/auctions", response_model=AuctionOut)
+# def create_auction(
+#     auction_data: AuctionCreate,
+#     db: Session = Depends(get_db),
+#     current_user: models.User = Depends(auth.get_current_farmer)
+# ):
+#     product = db.query(Product).filter(Product.id == auction_data.product_id, Product.farmer_id == current_user.id).first()
+#     if not product:
+#         raise HTTPException(status_code=404, detail="Product not found or you don't have permission to auction it.")
+#     if product.auction:
+#         raise HTTPException(status_code=400, detail="This product is already on auction.")
+#     if auction_data.end_time <= datetime.utcnow():
+#         raise HTTPException(status_code=400, detail="Auction end time must be in the future.")
+#     new_auction = Auction(
+#         product_id=auction_data.product_id,
+#         seller_id=current_user.id,
+#         starting_bid=auction_data.starting_bid,
+#         current_bid=auction_data.starting_bid,
+#         end_time=auction_data.end_time
+#     )
+#     db.add(new_auction)
+#     db.commit()
+#     db.refresh(new_auction)
+
+#     return {
+#         "id": new_auction.id,
+#         "product_id": product.id,
+#         "product_name":product.name,
+#         "seller_id": current_user.id,
+#         "seller_name": current_user.full_name,
+#         "starting_bid": new_auction.starting_bid,
+#         "current_bid": new_auction.current_bid,
+#         "highest_bidder_id": None,
+#         "highest_bidder_name": None,
+#         "start_time": new_auction.start_time,
+#         "end_time": new_auction.end_time,
+#         "is_active": new_auction.is_active,
+#         "bid_count":0
+#     }
+
+
+
+from datetime import datetime, timezone
+
+@app.post("/auctions", response_model=AuctionOut)
+def create_auction(
+    auction_data: AuctionCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_farmer)
+):
+    # Check product – only own products
+    product = db.query(Product).filter(Product.id == auction_data.product_id, Product.farmer_id == current_user.id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found or not yours")
+    if product.auction:
+        raise HTTPException(status_code=400, detail="Product already has an active auction")
+    
+    # Convert end_time to naive UTC datetime for comparison and storage
+    if auction_data.end_time.tzinfo is not None:
+        end_time_naive = auction_data.end_time.astimezone(timezone.utc).replace(tzinfo=None)
+    else:
+        end_time_naive = auction_data.end_time
+    
+    if end_time_naive <= datetime.utcnow():
+        raise HTTPException(status_code=400, detail="End time must be in future")
+    
+    new_auction = Auction(
+        product_id=product.id,
+        seller_id=current_user.id,
+        starting_bid=auction_data.starting_bid,
+        current_bid=auction_data.starting_bid,
+        start_time=datetime.utcnow(),
+        end_time=end_time_naive
+    )
+    db.add(new_auction)
+    db.commit()
+    db.refresh(new_auction)
+    
+    # Return as per AuctionOut schema
+    seller = db.query(User).filter(User.id == new_auction.seller_id).first()
+    bid_count = db.query(AuctionBid).filter(AuctionBid.auction_id == new_auction.id).count()
+    
+    return {
+        "id": new_auction.id,
+        "product_id": product.id,
+        "product_name": product.name,
+        "seller_id": seller.id,
+        "seller_name": seller.full_name,
+        "starting_bid": new_auction.starting_bid,
+        "current_bid": new_auction.current_bid,
+        "highest_bidder_id": None,
+        "highest_bidder_name": None,
+        "start_time": new_auction.start_time,
+        "end_time": new_auction.end_time,
+        "is_active": new_auction.is_active,
+        "bid_count": bid_count,
+        "status":"active",
+        "winner_id":None,
+        "winner_name":None
+    }
+
+@app.post("/auctions/{auction_id}/bid",response_model=AuctionOut)
+def place_bid(
+    auction_id:int,
+    bid_data: AuctionBidCreate,
+    db:Session = Depends(get_db),
+    current_user:models.User=Depends(auth.get_current_user)
+):
+    auction = db.query(Auction).filter(Auction.id == auction_id,Auction.is_active==True).first()
+    if not auction:
+        raise HTTPException(status_code=404,detail="Auction not active")
+    if auction.end_time < datetime.utcnow():
+        auction.is_active = False
+        db.commit()
+        raise HTTPException(status_code=400,detail="Auction ended")
+    if bid_data.amount <= auction.current_bid:
+        raise HTTPException(status_code=400,detail=f"Bid must be higher than current bid ₹{auction.current_bid}")
+    
+    new_bid =  AuctionBid(
+        auction_id = auction_id,
+        bidder_id=current_user.id,
+        amount=bid_data.amount
+    )
+
+    db.add(new_bid)
+    auction.current_bid = bid_data.amount
+    auction.highest_bidder_id=current_user.id
+    db.commit()
+    db.refresh(auction)
+
+    product = db.query(Product).filter(Product.id == auction.product_id).first()
+    seller = db.query(User).filter(User.id == auction.seller_id).first()
+    highest_bidder = db.query(User).filter(User.id == auction.highest_bidder_id).first()
+    bid_count = db.query(AuctionBid).filter(AuctionBid.auction_id == auction.id).count()
+
+    return {
+        "id":auction.id,
+        "product_id":product.id,
+        "product_name": product.name,
+        "seller_id": seller.id,
+        "seller_name": seller.full_name,
+        "starting_bid": auction.starting_bid,
+        "current_bid": auction.current_bid,
+        "highest_bidder_id": highest_bidder.id if highest_bidder else None,
+        "highest_bidder_name": highest_bidder.full_name if highest_bidder else None,
+        "start_time": auction.start_time,
+        "end_time": auction.end_time,
+        "is_active": auction.is_active,
+        "bid_count": bid_count ,
+        "status": auction.status,
+        "winner_id": auction.winner_id,
+        "winner_name": db.query(User).filter(User.id == auction.winner_id).first().full_name if auction.winner_id else None       
+    }
+
+@app.get("/auctions/active",response_model=List[AuctionOut])
+def get_active_auctions(db:Session = Depends(get_db)):
+    now = datetime.utcnow()
+    auctions = db.query(Auction).filter(Auction.is_active == True,Auction.end_time > now).all()
+    result = []
+    for a in auctions:
+        product = db.query(Product).filter(Product.id == a.product_id).first()
+        seller = db.query(User).filter(User.id == a.seller_id).first()
+        highest_bidder = db.query(User).filter(User.id == a.highest_bidder_id).first() if a.highest_bidder_id else None
+
+        bid_count = db.query(AuctionBid).filter(AuctionBid.auction_id == a.id).count()
+
+        result.append({
+
+            "id":a.id,
+            "product_id": product.id,
+            "product_name": product.name,
+            "seller_id": seller.id,
+            "seller_name": seller.full_name,
+            "starting_bid": a.starting_bid,
+            "current_bid": a.current_bid,
+            "highest_bidder_id": highest_bidder.id if highest_bidder else None,
+            "highest_bidder_name": highest_bidder.full_name if highest_bidder else None,
+            "start_time": a.start_time,
+            "end_time": a.end_time,
+            "is_active": a.is_active,
+            "bid_count": bid_count   ,
+            "status": a.status,
+            "winner_id": a.winner_id,
+            "winner_name": db.query(User).filter(User.id == a.winner_id).first().full_name if a.winner_id else None
+
+        })
+
+    return result
+
+@app.post("/auctions/close-expired")
+def close_expired_auctions(db:Session = Depends(get_db)):
+    expired = db.query(Auction).filter(Auction.is_active == True, Auction.end_time <= datetime.utcnow()).all()
+
+    for a in expired:
+        a.is_active = False
+        if a.highest_bidder_id:
+            pass
+        db.commit()
+
+        return {"closed":len(expired)}
+
+
+
+# Farmer: Get my auctions (active and ended)
+@app.get("/auctions/my", response_model=List[AuctionOut])
+def get_my_auctions(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_farmer)):
+    auctions = db.query(Auction).filter(Auction.seller_id == current_user.id).order_by(Auction.created_at.desc()).all()
+    result = []
+    for a in auctions:
+        product = db.query(Product).get(a.product_id)
+        seller = db.query(User).get(a.seller_id)
+        highest_bidder = db.query(User).get(a.highest_bidder_id) if a.highest_bidder_id else None
+        winner = db.query(User).get(a.winner_id) if a.winner_id else None
+        bid_count = db.query(AuctionBid).filter(AuctionBid.auction_id == a.id).count()
+        result.append({
+            "id": a.id,
+            "product_id": product.id,
+            "product_name": product.name,
+            "seller_id": seller.id,
+            "seller_name": seller.full_name,
+            "starting_bid": a.starting_bid,
+            "current_bid": a.current_bid,
+            "highest_bidder_id": a.highest_bidder_id,
+            "highest_bidder_name": highest_bidder.full_name if highest_bidder else None,
+            "start_time": a.start_time,
+            "end_time": a.end_time,
+            "is_active": a.is_active,
+            "status": a.status,
+            "winner_id": a.winner_id,
+            "winner_name": winner.full_name if winner else None,
+            "bid_count": bid_count
+        })
+    return result
+
+
+from schemas import AuctionBidOut
+
+# Farmer: Get all bids for a specific auction
+@app.get("/auctions/{auction_id}/bids", response_model=List[AuctionBidOut])
+def get_auction_bids(auction_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    auction = db.query(Auction).get(auction_id)
+    if not auction:
+        raise HTTPException(status_code=404, detail="Auction not found")
+    # Allow farmer or buyer to see bids? Let farmer see all bids, buyer see only their own? For simplicity, allow farmer.
+    if current_user.role == "farmer" and auction.seller_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    bids = db.query(AuctionBid).filter(AuctionBid.auction_id == auction_id).order_by(AuctionBid.amount.desc()).all()
+    result = []
+    for b in bids:
+        bidder = db.query(User).get(b.bidder_id)
+        result.append({
+            "id": b.id,
+            "bidder_id": b.bidder_id,
+            "bidder_name": bidder.full_name,
+            "amount": b.amount,
+            "created_at": b.created_at,
+            "auction_id":auction.id
+
+        })
+    return result
+
+# # Farmer: End auction early and sell to highest bidder
+# @app.post("/auctions/{auction_id}/end")
+# def end_auction(auction_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_farmer)):
+#     auction = db.query(Auction).get(auction_id)
+#     if not auction:
+#         raise HTTPException(status_code=404, detail="Auction not found")
+#     if auction.seller_id != current_user.id:
+#         raise HTTPException(status_code=403, detail="Not authorized")
+#     if auction.status != "active":
+#         raise HTTPException(status_code=400, detail="Auction already ended")
+    
+#     # Determine winner: highest bidder
+#     if auction.highest_bidder_id:
+#         auction.winner_id = auction.highest_bidder_id
+#         auction.status = "sold"
+#         auction.is_active = False
+#         # Optional: create an order automatically for the winner
+#         # We'll just mark as sold for now
+#         db.commit()
+#         return {"message": f"Auction ended. Product sold to {auction.highest_bidder_id}"}
+#     else:
+#         # No bids, allow farmer to cancel
+#         auction.status = "cancelled"
+#         auction.is_active = False
+#         db.commit()
+#         return {"message": "Auction ended with no bids. Product not sold."}
+
+
+from datetime import datetime
+from models import Order, OrderItem
+
+@app.post("/auctions/{auction_id}/end")
+async def end_auction(
+    auction_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_farmer)
+):
+    auction = db.query(Auction).filter(Auction.id == auction_id).first()
+    if not auction:
+        raise HTTPException(status_code=404, detail="लिलाव सापडला नाही")
+    if auction.seller_id != current_user.id:
+        raise HTTPException(status_code=403, detail="अधिकृत नाही")
+    if auction.status != "active":
+        raise HTTPException(status_code=400, detail="लिलाव आधीच संपला आहे")
+    
+    highest_bidder_id = auction.highest_bidder_id
+    product = db.query(Product).filter(Product.id == auction.product_id).first()
+    
+    if highest_bidder_id:
+        # लिलाव विकला
+        auction.status = "sold"
+        auction.is_active = False
+        auction.winner_id = highest_bidder_id
+        
+        # विजेत्यासाठी नवीन ऑर्डर तयार करा
+        buyer = db.query(User).filter(User.id == highest_bidder_id).first()
+        order_total = auction.current_bid  # विजयी रक्कम
+        
+        new_order = Order(
+            buyer_id=highest_bidder_id,
+            total_amount=order_total,
+            status="confirmed",   # थेट कन्फर्म (किंवा pending ठेवू शकता)
+            payment_method="cod", # बदलू शकता
+            advance_paid=0,
+            pending_amount=order_total,
+            delivery_date=None
+        )
+        db.add(new_order)
+        db.flush()  # order.id मिळण्यासाठी
+        
+        # ऑर्डर आयटम तयार करा
+        order_item = OrderItem(
+            order_id=new_order.id,
+            product_id=product.id,
+            quantity=1,
+            price=auction.current_bid
+        )
+        db.add(order_item)
+        
+        # उत्पादनाचे प्रमाण १ ने कमी करा
+        if product.quantity >= 1:
+            product.quantity -= 1
+            if product.quantity == 0:
+                product.is_available = False
+        
+        db.commit()
+        
+        # (पर्यायी) विजेत्याला सॉकेट नोटिफिकेशन पाठवा
+        sid = user_sid_map.get(highest_bidder_id)
+        if sid:
+            await sio.emit('order_created', {
+                'order_id': new_order.id,
+                'message': f'तुम्ही लिलाव जिंकला! ऑर्डर #{new_order.id} तयार झाली आहे.'
+            }, room=sid)
+        
+        return {
+            "message": f"लिलाव संपला. {buyer.full_name} साठी ऑर्डर #{new_order.id} तयार झाली.",
+            "order_id": new_order.id
+        }
+    else:
+        # कोणतीही बोली नाही
+        auction.status = "cancelled"
+        auction.is_active = False
+        db.commit()
+        return {"message": "कोणतीही बोली नव्हती, लिलाव रद्द."}
+
+
+# Farmer: Cancel auction (no sale)
+@app.post("/auctions/{auction_id}/cancel")
+def cancel_auction(auction_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_farmer)):
+    auction = db.query(Auction).get(auction_id)
+    if not auction:
+        raise HTTPException(status_code=404, detail="Auction not found")
+    if auction.seller_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if auction.status != "active":
+        raise HTTPException(status_code=400, detail="Auction already ended")
+    auction.status = "cancelled"
+    auction.is_active = False
+    db.commit()
+    return {"message": "Auction cancelled"}
+
+
+
+
+# backend/main.py
+
+# ... इतर imports ...
+import socketio
+
+sio = socketio.AsyncServer(cors_allowed_origins="*", async_mode="asgi")
+socket_app = socketio.ASGIApp(sio, app)
+
+user_sid_map = {}
+
+# ---------- Socket.IO Event Handlers ----------
+@sio.event
+async def connect(sid, environ):
+    print(f"Client Connected: {sid}")
+
+@sio.event
+async def disconnect(sid):
+    for uid, s in list(user_sid_map.items()):
+        if s == sid:
+            del user_sid_map[uid]
+            break
+
+@sio.event
+async def register_user(sid, data):
+    user_id = data.get("user_id")
+    if user_id:
+        user_sid_map[user_id] = sid
+        print(f"User {user_id} registered with sid {sid}")
+
+# ⬇️ ⬇️ ⬇️ तुमचे नवीन कॉलिंग इव्हेंट्स येथे ठेवा ⬇️ ⬇️ ⬇️
+@sio.event
+async def call_user(sid, data):
+    target_user_id = data['target_user_id']
+    caller_id = data['caller_id']
+    caller_name = data['caller_name']
+    target_sid = user_sid_map.get(target_user_id)
+    if target_sid:
+        await sio.emit('incoming_call', {
+            'caller_id': caller_id,
+            'caller_name': caller_name,
+            'caller_sid': sid
+        }, room=target_sid)
+
+@sio.event
+async def accept_call(sid, data):
+    caller_sid = data['caller_sid']
+    receiver_sid = sid
+    await sio.emit('call_accepted', {'receiver_sid': receiver_sid}, room=caller_sid)
+    await sio.emit('call_accepted', {'caller_sid': caller_sid}, room=receiver_sid)
+
+@sio.event
+async def reject_call(sid, data):
+    caller_sid = data['caller_sid']
+    await sio.emit('call_rejected', {}, room=caller_sid)
+
+@sio.event
+async def offer(sid, data):
+    target_sid = data['target_sid']
+    await sio.emit('offer', {'offer': data['offer'], 'caller_sid': sid}, room=target_sid)
+
+@sio.event
+async def answer(sid, data):
+    target_sid = data['target_sid']
+    await sio.emit('answer', {'answer': data['answer']}, room=target_sid)
+
+@sio.event
+async def ice_candidate(sid, data):
+    target_sid = data['target_sid']
+    await sio.emit('ice_candidate', {'candidate': data['candidate']}, room=target_sid)
+
+# ... बाकीचे तुमचे एंडपॉइंट्स ...
+
+
+@app.post("/call/experts")
+def get_available_experts(db:Session = Depends(get_db)):
+
+    experts = db.query(models.User).filter(models.User.role.in_(['admin','expert'])).all()
+    return [{"id":e.id,"name":e.full_name,"profile_picture":e.profile_picture} for e in experts]
+
+
+
+
+
+# ---------- Video Call: Get available experts ----------
+@app.get("/call/experts")
+def get_available_experts(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    # ज्यांच्याकडे 'expert' रोल आहे असे यूजर शोधा
+    # तात्पुरते आपण 'admin' रोल असलेल्यांनाच expert मानू
+    experts = db.query(models.User).filter(models.User.role.in_(['admin'])).all()
+    # किंवा तुम्ही 'expert' हा नवीन रोल जोडू शकता
+    return [
+        {
+            "id": e.id,
+            "full_name": e.full_name,
+            "profile_picture": e.profile_picture,
+            "role": e.role
+        }
+        for e in experts
+    ]
+
+
+from models import GovScheme
+from schemas import GovSchemeOut,SchemeFinderInput
+
+# ---------- सरकारी योजना शिफारस ----------
+@app.post("/schemes/recommend", response_model=List[GovSchemeOut])
+def recommend_schemes(
+    input_data: SchemeFinderInput,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    # प्राथमिक नियम-आधारित फिल्टरिंग
+    query = db.query(GovScheme)
+    
+    # पिकानुसार फिल्टर (crop_type मध्ये 'सर्व' किंवा जुळणारे पीक)
+    query = query.filter(
+        (GovScheme.crop_type == None) | 
+        (GovScheme.crop_type == "सर्व") | 
+        (GovScheme.crop_type == input_data.crop_name)
+    )
+    
+    # क्षेत्रफळानुसार (min_land_area पेक्षा जास्त किंवा नसेल तर)
+    query = query.filter(
+        (GovScheme.min_land_area == None) | 
+        (GovScheme.min_land_area <= input_data.land_area)
+    )
+    
+    schemes = query.all()
+    return schemes
+
+@app.post("/admin/schemes")
+def add_scheme(
+    scheme:GovSchemeOut,
+    db:Session = Depends(get_db),
+    current_user:models.User = Depends(auth.get_current_admin)
+):
+    db_scheme = GovScheme(**scheme.dict())
+    db.add(db_scheme)
+    db.commit()
+    return {"message":"Scheme added successfully", "scheme_id": db_scheme.id}
 
 
 
