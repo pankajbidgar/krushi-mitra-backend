@@ -4,7 +4,7 @@ import shutil
 import json
 from typing import List
 from datetime import datetime, timedelta
-from models import ChatMessage   # ही ओळ जोडा, Product
+from models import ChatMessage   
 
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,27 +62,6 @@ client = razorpay.Client(auth=("YOUR_KEY_ID", "YOUR_KEY_SECRET"))
 
 # ------------------- User Endpoints -------------------
 
-
-# @app.post("/register", response_model=schemas.UserOut)
-# def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
-#     existing_user = auth.get_user_by_email(db, user.email)
-#     if existing_user:
-#         raise HTTPException(status_code=400, detail="Email already registered")
-#     hashed = auth.get_Password_hashed(user.password)
-#     db_user = models.User(
-#         full_name=user.full_name,
-#         email=user.email,
-#         hashed_password=hashed,
-#         role=user.role,
-#         phone=user.phone,
-#         location=user.location
-#     )
-#     db.add(db_user)
-#     db.commit()
-#     db.refresh(db_user)
-#     return db_user
-
-
 from utils.email_templates import get_welcome_email
 from utils.email_sender import send_generic_email
 
@@ -106,7 +85,7 @@ def register(user: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
     
-    # ✅ ईमेल पाठवा (फंक्शनच्या आत)
+    
     try:
         send_generic_email(user.email, "शेतकरी बाजार मध्ये स्वागत आहे", get_welcome_email(user.full_name))
     except Exception as e:
@@ -131,7 +110,7 @@ def read_me(current_user: models.User = Depends(auth.get_current_user)):
         "role": current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role),
         "phone": current_user.phone,
         "location": current_user.location,
-        "profile_picture": current_user.profile_picture,   # ही ओळ जोडा
+        "profile_picture": current_user.profile_picture,   
     }
 
 @app.get("/farmer-only")
@@ -236,7 +215,7 @@ def get_all_products(
 
 
 
-# pip install qrcode[pil]
+
 import qrcode
 from io import BytesIO
 from fastapi.responses import StreamingResponse
@@ -247,7 +226,7 @@ def generate_product_qrcode(product_id: int, db: Session = Depends(get_db)):
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    # URL of product detail page (frontend)
+    
     product_url = f"http://localhost:3000/buyer/products?productId={product_id}"
     qr = qrcode.QRCode(box_size=10, border=2)
     qr.add_data(product_url)
@@ -352,7 +331,7 @@ async def create_order(
 
     total = 0.0
     order_items = []
-    farmer_emails = set()   # एकाच ऑर्डरमध्ये अनेक शेतकरी असू शकतात, प्रत्येकाला स्वतंत्र ईमेल
+    farmer_emails = set()   
 
     for item in order.items:
         product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
@@ -457,9 +436,7 @@ async def create_order(
             html = get_new_order_email(farmer_user.full_name, new_order.id, total, buyer_name)
             send_generic_email(farmer_email, f"नवीन ऑर्डर #{new_order.id}", html)
 
-    # Optionally send confirmation email to buyer
-    # buyer_html = get_order_confirmation_email(current_user.full_name, new_order.id, total)
-    # send_generic_email(current_user.email, f"ऑर्डर #{new_order.id} ची पुष्टी", buyer_html)
+
 
     if order.payment_method in ["online_advance", "online_full"]:
         return {
@@ -715,22 +692,20 @@ def admin_delete_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # जर यूजर Farmer असेल तर त्याची सर्व उत्पादने डिलीट करा
+  
     if user.role == models.UserRole.farmer:
         products = db.query(models.Product).filter(models.Product.farmer_id == user_id).all()
         for product in products:
-            # प्रॉडक्टशी संबंधित ऑर्डर आयटम्स आधी डिलीट करावे लागतील
+            
             db.query(models.OrderItem).filter(models.OrderItem.product_id == product.id).delete()
             db.delete(product)
     
-    # जर यूजर Buyer असेल तर त्याच्या ऑर्डर आणि ऑर्डर आयटम्स डिलीट करा
     if user.role == models.UserRole.buyer:
         orders = db.query(models.Order).filter(models.Order.buyer_id == user_id).all()
         for order in orders:
             db.query(models.OrderItem).filter(models.OrderItem.order_id == order.id).delete()
             db.delete(order)
-    
-    # शेवटी यूजर डिलीट करा
+  
     db.delete(user)
     db.commit()
     return {"message": "User and all related data deleted"}
@@ -790,7 +765,7 @@ def admin_get_orders(
             payment_method=order.payment_method,
             advance_paid=order.advance_paid,
             pending_amount=order.pending_amount,
-            buyer_id=order.buyer_id,   # ✅ ही ओळ जोडा
+            buyer_id=order.buyer_id,   
             items=items_out
         ))
     return result
@@ -886,7 +861,7 @@ def get_profile(current_user: models.User = Depends(auth.get_current_user)):
         "role": current_user.role.value if hasattr(current_user.role, 'value') else str(current_user.role),
         "phone": current_user.phone,
         "location": current_user.location,
-        "profile_picture": current_user.profile_picture,   # ही ओळ जोडा
+        "profile_picture": current_user.profile_picture, 
     }
 
 @app.put("/profile", response_model=schemas.UserOut)
@@ -929,7 +904,7 @@ async def upload_profile_picture(
 
 
 # ------------------- Chat Endpoints -------------------
-# सर्व यूजर (स्वतःशिवाय) – full_name, profile_picture देते
+
 @app.get("/users/all")
 def get_all_users(
     db: Session = Depends(get_db),
@@ -943,7 +918,7 @@ def get_all_users(
         "profile_picture": u.profile_picture
     } for u in users]
 
-# कन्व्हर्सेशन – फक्त शेवटचा मेसेज आणि अनरेड काउंटसाठी
+
 @app.get("/chat/conversations")
 def get_conversations(
     db: Session = Depends(get_db),
@@ -1169,20 +1144,12 @@ def change_password(
     
     return {"message": "Password changed successfully"}
 
-
-
-
-
-
-
-
-
 @app.post("/crop-recommendation")
 def recommend_crop(data: CropRecommendationRequest):
     # Rule-based logic
     recommendations = []
     
-    # खरीप (June-October)
+    
     if data.season == "खरीप":
         if data.soil_type == "काळी":
             recommendations = ["कापूस", "ज्वारी", "मका"]
@@ -1191,7 +1158,7 @@ def recommend_crop(data: CropRecommendationRequest):
         else:
             recommendations = ["ज्वारी", "बाजरी", "मका"]
     
-    # रब्बी (October-March)
+    
     elif data.season == "रब्बी":
         if data.water == "भरपूर":
             recommendations = ["गहू", "हरभरा", "मटर"]
@@ -1200,7 +1167,7 @@ def recommend_crop(data: CropRecommendationRequest):
         else:
             recommendations = ["बाजरी", "हरभरा", "ज्वारी"]
     
-    # उन्हाळी (March-June)
+    
     else:
         recommendations = ["करडई", "सूर्यफूल", "भुईमूग"]
     
@@ -1227,7 +1194,7 @@ async def fetch_all_agmarknet_prices(api_key: str):
     url = "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070"
     all_records = []
     offset = 0
-    limit = 2000  # एका वेळी 200 रेकॉर्ड्स (API सहसा 100 पर्यंत अनुमती देते, पण प्रयत्न करू)
+    limit = 2000 
 
     async with aiohttp.ClientSession() as session:
         while True:
@@ -1239,18 +1206,18 @@ async def fetch_all_agmarknet_prices(api_key: str):
             }
             async with session.get(url, params=params) as resp:
                 if resp.status != 200:
-                    # जर एरर आली तर ब्रेक करा
+                    
                     break
                 data = await resp.json()
                 records = data.get("records", [])
                 if not records:
                     break
                 all_records.extend(records)
-                # जर मिळालेल्या records ची संख्या limit पेक्षा कमी असेल, तर शेवटचे पेज आहे
+                
                 if len(records) < limit:
                     break
                 offset += limit
-                # सुरक्षिततेसाठी (API abuse टाळण्यासाठी) 5000 रेकॉर्ड्स पेक्षा जास्त घेऊ नका
+               
                 if offset > 5000:
                     break
 
@@ -1262,7 +1229,7 @@ async def fetch_all_agmarknet_prices(api_key: str):
 
 
 
-# डेमो डेटा (महाराष्ट्रासाठी)
+
 demo_maharashtra_prices = [
     {"commodity": "टोमॅटो", "variety": "हायब्रिड", "market": "पुणे, पुणे, महाराष्ट्र", "price_min": 20, "price_max": 30, "price_modal": 25, "arrival_date": "2026-04-09"},
     {"commodity": "कांदा", "variety": "लाल", "market": "नाशिक, नाशिक, महाराष्ट्र", "price_min": 15, "price_max": 20, "price_modal": 18, "arrival_date": "2026-04-09"},
@@ -1281,7 +1248,7 @@ async def get_dynamic_market_prices():
         return market_cache["data"]
 
     if not API_KEY:
-        # API key नसेल तर डेमो डेटा दाखवा
+       
         market_cache["data"] = demo_maharashtra_prices
         market_cache["date"] = today
         return demo_maharashtra_prices
@@ -1302,13 +1269,13 @@ async def get_dynamic_market_prices():
                     "arrival_date": record.get("arrival_date"),
                 })
         if len(processed) == 0:
-            # API वरून महाराष्ट्राचा डेटा नाही, तर डेमो वापरा
+            
             processed = demo_maharashtra_prices
         market_cache["data"] = processed
         market_cache["date"] = today
         return processed
     except Exception as e:
-        # Error आल्यास डेमो डेटा दाखवा
+       
         print(f"API error: {e}, using demo data")
         market_cache["data"] = demo_maharashtra_prices
         market_cache["date"] = today
@@ -1320,13 +1287,13 @@ async def get_dynamic_market_prices():
 import aiohttp
 from urllib.parse import quote
 
-# ... (तुझे इतर सर्व import आणि app = FastAPI() वगैरे)
+
 
 # ------------------- LIVE WEATHER ADVICE (Open-Meteo) -------------------
 import aiohttp
 from urllib.parse import quote
 
-# Geocoding API: शहराचे नाव → अक्षांश-रेखांश
+
 async def get_coordinates(city_name: str):
     """शहराचे नाव देऊन त्याचे अक्षांश (latitude) आणि रेखांश (longitude) मिळवा."""
     url = f"https://geocoding-api.open-meteo.com/v1/search?name={quote(city_name)}&count=1&language=en"
@@ -1344,23 +1311,23 @@ async def get_coordinates(city_name: str):
 
 @app.get("/weather-advice")
 async def get_weather_advice(city: str = None, lat: float = None, lon: float = None):
-    # तपासा की एकतर city किंवा (lat आणि lon) दिले आहे
+
     if not city and (lat is None or lon is None):
         raise HTTPException(status_code=400, detail="Provide either 'city' or both 'lat' and 'lon'.")
     
-    # जर lat, lon दिले असतील तर थेट weather API कॉल करा
+  
     if lat is not None and lon is not None:
         weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m&forecast_days=1"
-        city_name = f"lat:{lat},lon:{lon}"  # नंतर reverse geocoding करू शकतो
+        city_name = f"lat:{lat},lon:{lon}" 
     else:
-        # city नाव दिले असेल तर प्रथम coordinates मिळवा
+       
         lat, lon = await get_coordinates(city)
         if lat is None or lon is None:
             raise HTTPException(status_code=404, detail=f"City '{city}' not found.")
         weather_url = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true&hourly=temperature_2m,relative_humidity_2m&forecast_days=1"
         city_name = city
 
-    # Open-Meteo कॉल
+   
     async with aiohttp.ClientSession() as session:
         async with session.get(weather_url) as resp:
             if resp.status != 200:
@@ -1375,12 +1342,12 @@ async def get_weather_advice(city: str = None, lat: float = None, lon: float = N
     hourly = data.get("hourly", {})
     humidity = hourly.get("relative_humidity_2m", [None])[0]
 
-    # हवामान वर्णन
+    
     description = "स्वच्छ आकाश"
     if weather_code and weather_code > 50:
         description = "पाऊस किंवा ढगाळ"
 
-    # शेती सल्ला (पूर्वीप्रमाणेच)
+
     advice = []
     if weather_code and weather_code > 50:
         advice.append("🌧️ आज पाऊस/ढगाळ हवामान आहे. उत्पादनांची कापणी टाळा. पिकांना आश्रय द्या.")
@@ -1424,7 +1391,7 @@ async def chatbot_endpoint(request: ChatRequest):
 async def chatbot_endpoint(request: ChatRequest):
     query = request.query.lower()
     
-    # शेतीशी संबंधित FAQ
+
     if "भात" in query or "तांदूळ" in query or "paddy" in query:
         answer = "🌾 भात लागवडीसाठी खरीप हंगाम (जून-ऑक्टोबर) योग्य आहे. सखल, चिकणमाती जमीन चांगली."
     elif "कांदा" in query or "onion" in query:
@@ -1457,14 +1424,14 @@ import io
 
 @app.post("/disease-detection")
 async def detect_disease(file: UploadFile = File(...)):
-    # फाइलची माहिती घ्या
+   
     if not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="Only image files allowed")
     
-    # फाइल वाचा
+  
     contents = await file.read()
     
-    # प्रयत्न करा: Gemini Vision वापरा (पर्यायी)
+    
     try:
         import google.generativeai as genai
         import base64
@@ -1488,35 +1455,35 @@ from pydantic import BaseModel
 import random
 
 class DynamicPricingRequest(BaseModel):
-    category: str      # भाजी, फळ, धान्य
-    base_price: float  # सध्याची किंमत किंवा सरासरी
-    season: str        # खरीप, रब्बी, उन्हाळी
-    demand: str        # high, medium, low
+    category: str     
+    base_price: float  
+    season: str        
+    demand: str        
 
 @app.post("/dynamic-pricing")
 def dynamic_pricing(request: DynamicPricingRequest):
-    # सीझन फॅक्टर
+  
     season_factor = {
         "खरीप": 1.1,
         "रब्बी": 1.0,
         "उन्हाळी": 0.9
     }.get(request.season, 1.0)
     
-    # डिमांड फॅक्टर
+   
     demand_factor = {
         "high": 1.2,
         "medium": 1.0,
         "low": 0.85
     }.get(request.demand, 1.0)
     
-    # कॅटेगरी फॅक्टर
+  
     category_factor = {
         "भाजी": 1.0,
         "फळ": 1.15,
         "धान्य": 0.95
     }.get(request.category, 1.0)
     
-    # रँडम व्हेरिएशन (AI सिम्युलेशन)
+    
     random_variation = random.uniform(0.9, 1.1)
     
     suggested_price = request.base_price * season_factor * demand_factor * category_factor * random_variation
@@ -1545,14 +1512,7 @@ class MobileOtpVerifyRequest(BaseModel):
 # Temporary OTP store
 phone_otp_store = {}
 
-# @app.post("/mobile/send-otp")
-# def send_mobile_otp(data: MobileOtpRequest):
-#     import random
-#     otp = str(random.randint(100000, 999999))
-#     phone_otp_store[data.phone] = otp
-#     # SMS sending commented for now – use console only
-#     print(f"📱 OTP for {data.phone}: {otp}")
-#     return {"message": "OTP sent (check console)", "otp": otp}   # DEMO
+
 
 from utils.sms import send_otp_sms
 
@@ -1561,7 +1521,7 @@ def send_mobile_otp(data: MobileOtpRequest):
     otp = generate_otp()
     phone_otp_store[data.phone] = otp
     sms_sent = send_otp_sms(data.phone, otp)
-    print(f"📱 OTP for {data.phone}: {otp}")   # डेमोसाठी
+    print(f"📱 OTP for {data.phone}: {otp}")   
     if not sms_sent:
         print(f"⚠️ SMS failed, but OTP {otp} is valid for {data.phone}")
     return {"message": "OTP sent", "otp": otp if not sms_sent else None}
@@ -1661,7 +1621,7 @@ def add_expense(
         amount=expense.amount,
         payment_method=expense.payment_method,
         receipt_url=expense.receipt_url,
-        payment_status=expense.payment_status,   # नवीन
+        payment_status=expense.payment_status, 
         date=expense.date,
         is_recurring=expense.is_recurring,
         recurring_interval=expense.recurring_interval
@@ -1708,7 +1668,7 @@ def get_profit_loss(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None
 ):
-    # 1. एकूण उत्पन्न (Farmer च्या उत्पादनांच्या डिलिव्हर ऑर्डरवरून)
+   
     products = db.query(models.Product).filter(models.Product.farmer_id == current_user.id).all()
     product_ids = [p.id for p in products]
     if not product_ids:
@@ -1726,7 +1686,7 @@ def get_profit_loss(
             revenue_query = revenue_query.filter(models.Order.created_at <= datetime.strptime(end_date, "%Y-%m-%d") + timedelta(days=1))
         total_revenue = revenue_query.scalar() or 0.0
 
-    # 2. एकूण खर्च
+   
     expense_query = db.query(models.FarmExpense).filter(models.FarmExpense.farmer_id == current_user.id)
     if start_date:
         expense_query = expense_query.filter(models.FarmExpense.date >= datetime.strptime(start_date, "%Y-%m-%d").date())
@@ -1735,7 +1695,7 @@ def get_profit_loss(
     expenses = expense_query.all()
     total_expenses = sum(e.amount for e in expenses)
 
-    # 3. ब्रेकडाउन्स (प्रकार, शेत, पीक)
+   
     breakdown = {}
     land_breakdown = {}
     crop_breakdown = {}
@@ -1759,7 +1719,7 @@ def get_profit_loss(
 
 
 
-# backend/main.py मध्ये जोडा
+
 
 from datetime import datetime
 import aiohttp
@@ -1772,16 +1732,16 @@ async def get_soil_moisture(lat: float = None, lon: float = None, city: str = No
     शेतकऱ्याच्या स्थानासाठी मातीतील ओलावा डेटा मिळवा.
     हे एंडपॉइंट Open-Meteo API वापरते.
     """
-    # 1. स्थान निश्चित करा (city/pincode किंवा थेट lat/lon)
+    
     if not lat or not lon:
         if not city and not pincode:
             raise HTTPException(status_code=400, detail="कृपया शहराचे नाव किंवा पिनकोड प्रविष्ट करा.")
         
-        # पिनकोड असल्यास त्याचे शहरात रूपांतर करण्यासाठी एक साधा मॅप (डेमो)
+        
         PINCODE_TO_CITY = {
-            "411001": "Pune",
-            "422001": "Nashik",
-            "400001": "Mumbai",
+            "423101": "chandwad",
+            "423104": "nashik",
+            "422007": "mumbai",
             "431001": "Aurangabad",
             "444001": "Akola"
         }
@@ -1790,7 +1750,7 @@ async def get_soil_moisture(lat: float = None, lon: float = None, city: str = No
             if not city:
                 raise HTTPException(status_code=400, detail="हा पिनकोड ओळखला गेला नाही. कृपया शहराचे नाव वापरा.")
         
-        # शहराचे latitude, longitude मिळवा (Geocoding API वापरून)
+       
         geocode_url = f"https://geocoding-api.open-meteo.com/v1/search?name={quote(city)}&count=1&language=en"
         async with aiohttp.ClientSession() as session:
             async with session.get(geocode_url) as resp:
@@ -1802,7 +1762,7 @@ async def get_soil_moisture(lat: float = None, lon: float = None, city: str = No
                 lat = data["results"][0]["latitude"]
                 lon = data["results"][0]["longitude"]
 
-    # 2. Open-Meteo API वरून Soil Moisture डेटा मिळवा
+
     url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": lat,
@@ -1818,26 +1778,23 @@ async def get_soil_moisture(lat: float = None, lon: float = None, city: str = No
                 raise HTTPException(status_code=resp.status, detail="मातीतील ओलावा डेटा मिळवताना त्रुटी आली.")
             data = await resp.json()
     
-    # 3. डेटा प्रोसेस करा (सध्याच्या तासाची व्हॅल्यू काढा)
+   
     hourly_data = data.get("hourly", {})
     soil_moisture_0_7 = hourly_data.get("soil_moisture_0_to_7cm", [])
     soil_moisture_7_28 = hourly_data.get("soil_moisture_7_to_28cm", [])
     time_array = hourly_data.get("time", [])
     
-    # सध्याच्या तासाचा इंडेक्स शोधा
     current_hour = datetime.now().strftime("%Y-%m-%dT%H:00")
     try:
         index = time_array.index(current_hour)
     except ValueError:
-        # जर सध्याचा तास सापडला नाही तर शेवटचा उपलब्ध डेटा वापरा
+    
         index = -1
     
     moisture_0_7 = soil_moisture_0_7[index] if soil_moisture_0_7 else None
     moisture_7_28 = soil_moisture_7_28[index] if soil_moisture_7_28 else None
     
-    # 4. ओलाव्यानुसार सिंचन सल्ला तयार करा
-    # Open-Meteo मधील व्हॅल्यूज m³/m³ (volumetric) आहेत
-    # 0.1 म्हणजे 10% ओलावा
+
     advice = []
     if moisture_0_7 is not None:
         if moisture_0_7 < 0.15:
@@ -1862,7 +1819,7 @@ async def get_soil_moisture(lat: float = None, lon: float = None, city: str = No
     if not advice:
         advice.append("🌱 मातीतील ओलावा सामान्य आहे. नियमित देखभाल करा.")
     
-    # 5. फ्रंटएंडला प्रतिसाद पाठवा
+
     return {
         "location": city or f"{lat}, {lon}",
         "timestamp": current_hour,
@@ -1955,11 +1912,11 @@ def get_profit_report(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_farmer)
 ):
-    # 1. शेतकऱ्याची सर्व उत्पादने
+ 
     products = db.query(models.Product).filter(models.Product.farmer_id == current_user.id).all()
     product_ids = [p.id for p in products]
     
-    # 2. उत्पन्न (Revenue) – केवळ delivered ऑर्डरमधून (SQLite friendly)
+    
     revenue_query = db.query(
         func.sum(models.OrderItem.price * models.OrderItem.quantity).label('total'),
         func.strftime('%Y-%m', models.Order.created_at).label('month')
@@ -1976,7 +1933,7 @@ def get_profit_report(
     
     revenue_results = revenue_query.group_by('month').all()
     
-    # 3. खर्च (Expenses)
+   
     expense_query = db.query(
         models.FarmExpense.amount,
         models.FarmExpense.date,
@@ -1995,10 +1952,10 @@ def get_profit_report(
     
     expenses = expense_query.all()
     
-    # 4. महिन्यानुसार उत्पन्न डिक्शनरी
+    
     revenue_by_month = {row.month: row.total for row in revenue_results}
     
-    # 5. महिन्यानुसार खर्च गोळा करा
+  
     expenses_by_month = defaultdict(float)
     crop_expenses = defaultdict(float)
     land_expenses = defaultdict(float)
@@ -2013,7 +1970,7 @@ def get_profit_report(
             land_expenses[exp.land_name] += exp.amount
         category_expenses[exp.category] += exp.amount
     
-    # 6. महिन्यानुसार नफा/तोटा यादी
+    
     all_months = set(revenue_by_month.keys()) | set(expenses_by_month.keys())
     monthly_breakdown = []
     for month in sorted(all_months):
@@ -2108,7 +2065,7 @@ def delete_irrigation_schedule(
     db.commit()
     return {"message": "Schedule deleted"}
 
-# पुढील सिंचनाची गरज असलेल्या शेड्यूलसाठी (नोटिफिकेशनसाठी)
+
 @app.get("/farm/irrigation/due")
 def get_due_irrigations(
     db: Session = Depends(get_db),
@@ -2171,10 +2128,10 @@ from reportlab.pdfbase.ttfonts import TTFont
 import io
 import os
 
-# ---------- युनिकोड फॉन्ट (इंग्रजी + मराठी) रजिस्टर करा ----------
+
 def register_unicode_font():
     font_paths = [
-        os.path.join(os.path.dirname(__file__), 'fonts', 'NotoSans-Regular.ttf'),  # ✅ BEST
+        os.path.join(os.path.dirname(__file__), 'fonts', 'NotoSans-Regular.ttf'),
     ]
     for path in font_paths:
         if os.path.exists(path):
@@ -2195,7 +2152,7 @@ FONT_NAME = "UnicodeFont" if UNICODE_FONT_AVAILABLE else "Helvetica"
 def draw_text(c, x, y, text, size=11, bold=False):
     """सर्व मजकूर (इंग्रजी/मराठी) एकाच फॉन्टने लिहा"""
     if bold and UNICODE_FONT_AVAILABLE:
-        # Nirmala bold साठी वेगळा फॉन्ट नाही, पण आपण फक्त सामान्य वापरू
+        
         c.setFont(FONT_NAME, size)
     elif bold:
         c.setFont('Helvetica-Bold', size)
@@ -2209,12 +2166,12 @@ def generate_invoice(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # 1. ऑर्डर मिळवा
+    
     order = db.query(models.Order).filter(models.Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    # 2. अधिकार तपासा (तुमचा विद्यमान कोड तसाच ठेवा)
+    
     if current_user.role == "buyer" and order.buyer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
     elif current_user.role == "farmer":
@@ -2229,7 +2186,7 @@ def generate_invoice(
     elif current_user.role != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    # 3. खरेदीदार आणि ऑर्डर आयटम्स
+  
     buyer = db.query(models.User).filter(models.User.id == order.buyer_id).first()
     order_items = db.query(models.OrderItem).filter(models.OrderItem.order_id == order.id).all()
 
@@ -2246,26 +2203,26 @@ def generate_invoice(
             "price": item.price,
             "total": line_total
         })
-        # डीबग: कन्सोलवर प्रॉडक्ट नाव प्रिंट करा
+      
         print(f"Product: {product_name}")
 
-    # 4. PDF तयार करा
+  
     buffer = io.BytesIO()
     c = canvas.Canvas(buffer, pagesize=A4)
     width, height = A4
     y = height - 50
 
-    # शीर्षक
+  
     draw_text(c, 50, y, "FARMER MARKET - INVOICE", size=16, bold=True)
     y -= 35
 
-    # ऑर्डर माहिती
+  
     draw_text(c, 50, y, f"Order ID: {order.id}", size=11)
     y -= 20
     draw_text(c, 50, y, f"Date: {order.created_at.strftime('%d/%m/%Y %H:%M')}", size=11)
     y -= 30
 
-    # खरेदीदार माहिती
+    
     draw_text(c, 50, y, "Buyer Details", size=12, bold=True)
     y -= 20
     draw_text(c, 50, y, f"Name: {buyer.full_name}", size=11)
@@ -2279,7 +2236,7 @@ def generate_invoice(
         draw_text(c, 50, y, f"Location: {buyer.location}", size=11)
         y -= 25
 
-    # उत्पादने सारणी शीर्षक
+  
     draw_text(c, 50, y, "Product", size=11, bold=True)
     draw_text(c, 200, y, "Qty", size=11, bold=True)
     draw_text(c, 250, y, "Price (₹)", size=11, bold=True)
@@ -2288,7 +2245,7 @@ def generate_invoice(
     c.line(50, y+5, 550, y+5)
     y -= 10
 
-    # उत्पादने यादी
+  
     for item in items_data:
         if y < 100:
             c.showPage()
@@ -2311,7 +2268,7 @@ def generate_invoice(
     draw_text(c, 250, y, f"Total Amount: ₹{total:.2f}", size=12, bold=True)
     y -= 30
 
-    # पेमेंट तपशील
+   
     draw_text(c, 50, y, "Payment Details", size=12, bold=True)
     y -= 20
     draw_text(c, 50, y, f"Method: {order.payment_method}", size=11)
@@ -2346,38 +2303,37 @@ def calculate_yield_prediction(crop_name: str, soil_type: str, seed_type: str, i
     """
     हेयुरिस्टिक लॉजिक – प्रति एकर किलोमध्ये उत्पादन अंदाज
     """
-    # बेस यील्ड (kg per acre)
+  
     base_yield = {
         "टोमॅटो": 15000, "कांदा": 12000, "गहू": 2500, "भात": 2200,
         "कापूस": 800, "ज्वारी": 1200, "बाजरी": 1000, "हरभरा": 900
     }.get(crop_name, 5000)
     
-    # माती फॅक्टर
+   
     soil_factor = {
         "काळी": 1.2, "लाल": 0.9, "वालुकामय": 0.7, "चिकणमाती": 1.0
     }.get(soil_type, 1.0)
     
-    # बियाणे फॅक्टर
+   
     seed_factor = 1.3 if seed_type == "hybrid" else 0.9 if seed_type == "local" else 1.0
     
-    # सिंचन फॅक्टर
+  
     irrigation_factor = {
         "drip": 1.4, "sprinkler": 1.2, "flood": 0.8
     }.get(irrigation_method, 1.0)
-    
-    # हंगाम फॅक्टर
+   
     season_factor = {
         "kharif": 1.0, "rabi": 1.1, "summer": 0.7
     }.get(season, 1.0)
     
-    # एकूण यील्ड
+
     predicted = base_yield * soil_factor * seed_factor * irrigation_factor * season_factor
     predicted = round(predicted, 2)
     
-    # कॉन्फिडन्स टक्केवारी
+  
     confidence = min(95, int(60 + (soil_factor * 10) + (seed_factor * 10) + (irrigation_factor * 10)))
     
-    # प्रभावित करणारे घटक
+   
     factors = []
     if seed_type == "hybrid":
         factors.append("✅ हायब्रीड बियाणे – उत्पादनात 30% वाढ")
@@ -2404,7 +2360,7 @@ def predict_yield(
         request.irrigation_method,
         request.season
     )
-    # भविष्यवाणी डेटाबेसमध्ये साठवा
+   
     history = YieldPrediction(
         farmer_id=current_user.id,
         crop_name=request.crop_name,
@@ -2418,7 +2374,7 @@ def predict_yield(
     db.add(history)
     db.commit()
 
-    total_yield = predicted * request.land_area # प्रति एकर यील्ड * क्षेत्रफळ
+    total_yield = predicted * request.land_area 
 
     return {
         "predicted_yield":total_yield,
@@ -2437,49 +2393,6 @@ def get_yield_history(
 
 from models import Auction,AuctionBid
 from schemas import AuctionCreate, AuctionOut
-
-
-# @app.post("/auctions", response_model=AuctionOut)
-# def create_auction(
-#     auction_data: AuctionCreate,
-#     db: Session = Depends(get_db),
-#     current_user: models.User = Depends(auth.get_current_farmer)
-# ):
-#     product = db.query(Product).filter(Product.id == auction_data.product_id, Product.farmer_id == current_user.id).first()
-#     if not product:
-#         raise HTTPException(status_code=404, detail="Product not found or you don't have permission to auction it.")
-#     if product.auction:
-#         raise HTTPException(status_code=400, detail="This product is already on auction.")
-#     if auction_data.end_time <= datetime.utcnow():
-#         raise HTTPException(status_code=400, detail="Auction end time must be in the future.")
-#     new_auction = Auction(
-#         product_id=auction_data.product_id,
-#         seller_id=current_user.id,
-#         starting_bid=auction_data.starting_bid,
-#         current_bid=auction_data.starting_bid,
-#         end_time=auction_data.end_time
-#     )
-#     db.add(new_auction)
-#     db.commit()
-#     db.refresh(new_auction)
-
-#     return {
-#         "id": new_auction.id,
-#         "product_id": product.id,
-#         "product_name":product.name,
-#         "seller_id": current_user.id,
-#         "seller_name": current_user.full_name,
-#         "starting_bid": new_auction.starting_bid,
-#         "current_bid": new_auction.current_bid,
-#         "highest_bidder_id": None,
-#         "highest_bidder_name": None,
-#         "start_time": new_auction.start_time,
-#         "end_time": new_auction.end_time,
-#         "is_active": new_auction.is_active,
-#         "bid_count":0
-#     }
-
-
 
 from datetime import datetime, timezone
 
@@ -2642,7 +2555,7 @@ def close_expired_auctions(db:Session = Depends(get_db)):
 
 
 
-# Farmer: Get my auctions (active and ended)
+
 @app.get("/auctions/my", response_model=List[AuctionOut])
 def get_my_auctions(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_farmer)):
     auctions = db.query(Auction).filter(Auction.seller_id == current_user.id).order_by(Auction.created_at.desc()).all()
@@ -2700,32 +2613,6 @@ def get_auction_bids(auction_id: int, db: Session = Depends(get_db), current_use
         })
     return result
 
-# # Farmer: End auction early and sell to highest bidder
-# @app.post("/auctions/{auction_id}/end")
-# def end_auction(auction_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_farmer)):
-#     auction = db.query(Auction).get(auction_id)
-#     if not auction:
-#         raise HTTPException(status_code=404, detail="Auction not found")
-#     if auction.seller_id != current_user.id:
-#         raise HTTPException(status_code=403, detail="Not authorized")
-#     if auction.status != "active":
-#         raise HTTPException(status_code=400, detail="Auction already ended")
-    
-#     # Determine winner: highest bidder
-#     if auction.highest_bidder_id:
-#         auction.winner_id = auction.highest_bidder_id
-#         auction.status = "sold"
-#         auction.is_active = False
-#         # Optional: create an order automatically for the winner
-#         # We'll just mark as sold for now
-#         db.commit()
-#         return {"message": f"Auction ended. Product sold to {auction.highest_bidder_id}"}
-#     else:
-#         # No bids, allow farmer to cancel
-#         auction.status = "cancelled"
-#         auction.is_active = False
-#         db.commit()
-#         return {"message": "Auction ended with no bids. Product not sold."}
 
 
 from datetime import datetime
@@ -2749,28 +2636,28 @@ async def end_auction(
     product = db.query(Product).filter(Product.id == auction.product_id).first()
     
     if highest_bidder_id:
-        # लिलाव विकला
+       
         auction.status = "sold"
         auction.is_active = False
         auction.winner_id = highest_bidder_id
+    
         
-        # विजेत्यासाठी नवीन ऑर्डर तयार करा
         buyer = db.query(User).filter(User.id == highest_bidder_id).first()
-        order_total = auction.current_bid  # विजयी रक्कम
+        order_total = auction.current_bid 
         
         new_order = Order(
             buyer_id=highest_bidder_id,
             total_amount=order_total,
-            status="confirmed",   # थेट कन्फर्म (किंवा pending ठेवू शकता)
-            payment_method="cod", # बदलू शकता
+            status="confirmed",   
+            payment_method="cod",
             advance_paid=0,
             pending_amount=order_total,
             delivery_date=None
         )
         db.add(new_order)
-        db.flush()  # order.id मिळण्यासाठी
+        db.flush()  
         
-        # ऑर्डर आयटम तयार करा
+        
         order_item = OrderItem(
             order_id=new_order.id,
             product_id=product.id,
@@ -2779,7 +2666,7 @@ async def end_auction(
         )
         db.add(order_item)
         
-        # उत्पादनाचे प्रमाण १ ने कमी करा
+        
         if product.quantity >= 1:
             product.quantity -= 1
             if product.quantity == 0:
@@ -2787,7 +2674,7 @@ async def end_auction(
         
         db.commit()
         
-        # (पर्यायी) विजेत्याला सॉकेट नोटिफिकेशन पाठवा
+    # (पर्यायी) विजेत्याला सॉकेट नोटिफिकेशन पाठवा
         sid = user_sid_map.get(highest_bidder_id)
         if sid:
             await sio.emit('order_created', {
@@ -2800,14 +2687,14 @@ async def end_auction(
             "order_id": new_order.id
         }
     else:
-        # कोणतीही बोली नाही
+       
         auction.status = "cancelled"
         auction.is_active = False
         db.commit()
         return {"message": "कोणतीही बोली नव्हती, लिलाव रद्द."}
 
 
-# Farmer: Cancel auction (no sale)
+
 @app.post("/auctions/{auction_id}/cancel")
 def cancel_auction(auction_id: int, db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_farmer)):
     auction = db.query(Auction).get(auction_id)
@@ -2824,10 +2711,6 @@ def cancel_auction(auction_id: int, db: Session = Depends(get_db), current_user:
 
 
 
-
-# backend/main.py
-
-# ... इतर imports ...
 import socketio
 
 sio = socketio.AsyncServer(cors_allowed_origins="*", async_mode="asgi")
@@ -2854,7 +2737,7 @@ async def register_user(sid, data):
         user_sid_map[user_id] = sid
         print(f"User {user_id} registered with sid {sid}")
 
-# ⬇️ ⬇️ ⬇️ तुमचे नवीन कॉलिंग इव्हेंट्स येथे ठेवा ⬇️ ⬇️ ⬇️
+
 @sio.event
 async def call_user(sid, data):
     target_user_id = data['target_user_id']
@@ -2895,7 +2778,7 @@ async def ice_candidate(sid, data):
     target_sid = data['target_sid']
     await sio.emit('ice_candidate', {'candidate': data['candidate']}, room=target_sid)
 
-# ... बाकीचे तुमचे एंडपॉइंट्स ...
+
 
 
 @app.post("/call/experts")
@@ -2911,10 +2794,8 @@ def get_available_experts(db:Session = Depends(get_db)):
 # ---------- Video Call: Get available experts ----------
 @app.get("/call/experts")
 def get_available_experts(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    # ज्यांच्याकडे 'expert' रोल आहे असे यूजर शोधा
-    # तात्पुरते आपण 'admin' रोल असलेल्यांनाच expert मानू
     experts = db.query(models.User).filter(models.User.role.in_(['admin'])).all()
-    # किंवा तुम्ही 'expert' हा नवीन रोल जोडू शकता
+   
     return [
         {
             "id": e.id,
@@ -2929,24 +2810,24 @@ def get_available_experts(db: Session = Depends(get_db), current_user: models.Us
 from models import GovScheme
 from schemas import GovSchemeOut,SchemeFinderInput
 
-# ---------- सरकारी योजना शिफारस ----------
+
 @app.post("/schemes/recommend", response_model=List[GovSchemeOut])
 def recommend_schemes(
     input_data: SchemeFinderInput,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
-    # प्राथमिक नियम-आधारित फिल्टरिंग
+   
     query = db.query(GovScheme)
     
-    # पिकानुसार फिल्टर (crop_type मध्ये 'सर्व' किंवा जुळणारे पीक)
+    
     query = query.filter(
         (GovScheme.crop_type == None) | 
         (GovScheme.crop_type == "सर्व") | 
         (GovScheme.crop_type == input_data.crop_name)
     )
     
-    # क्षेत्रफळानुसार (min_land_area पेक्षा जास्त किंवा नसेल तर)
+    
     query = query.filter(
         (GovScheme.min_land_area == None) | 
         (GovScheme.min_land_area <= input_data.land_area)
