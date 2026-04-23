@@ -27,7 +27,7 @@ def verify_password(plain_password, hashed_password):
 
 # def get_Password_hashed(password):
 #     return pwd_context.hash(password)
-def get_password_hash(password):
+def get_Password_hashed(password):
     password = password[:72]
     return pwd_context.hash(password)
 
