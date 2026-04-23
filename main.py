@@ -2792,45 +2792,24 @@ def get_available_experts(db:Session = Depends(get_db)):
 
 
 # ---------- Video Call: Get available experts ----------
-# @app.get("/call/experts")
-# def get_available_experts(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-#     experts = db.query(models.User).filter(models.User.role.in_(['buyer'])).all()
-   
-#     return [
-#         {
-#             "id": e.id,
-#             "full_name": e.full_name,
-#             "profile_picture": e.profile_picture,
-#             "role": e.role
-#         }
-#         for e in experts
-#     ]
-
-
-user_peer_map = {}  # { user_id: peer_id }
-
-@sio.event
-async def register_user(sid, data):
-    user_id = data.get("user_id")
-    peer_id = data.get("peer_id")
-    if user_id:
-        user_sid_map[user_id] = sid
-        if peer_id:
-            user_peer_map[user_id] = peer_id
-
 @app.get("/call/experts")
-def get_available_experts(db: Session = Depends(get_db), current_user = Depends(auth.get_current_user)):
-    buyers = db.query(models.User).filter(models.User.role == 'buyer', models.User.id != current_user.id).all()
+def get_available_experts(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
+    experts = db.query(models.User).filter(models.User.role.in_(['buyer'])).all()
+   
     return [
         {
-            "id": u.id,
-            "full_name": u.full_name,
-            "profile_picture": u.profile_picture,
-            "role": u.role,
-            "peer_id": user_peer_map.get(u.id)  # जर peer_id असेल तर पाठवा
+            "id": e.id,
+            "full_name": e.full_name,
+            "profile_picture": e.profile_picture,
+            "role": e.role
         }
-        for u in buyers
+        for e in experts
     ]
+
+
+
+
+
 
 
 from models import GovScheme
