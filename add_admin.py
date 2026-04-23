@@ -7,7 +7,7 @@ db = SessionLocal()
 # Admin यूजर तयार करा
 admin = User(
     full_name="Admin User",
-    email="admin123@gmail.com",
+    email="admin@gmail.com",
     hashed_password=get_Password_hashed("1234"),  # तुमचा पासवर्ड
     role=UserRole.admin,
     phone="9999999999",

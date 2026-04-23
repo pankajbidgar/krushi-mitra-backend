@@ -2784,7 +2784,7 @@ async def ice_candidate(sid, data):
 @app.post("/call/experts")
 def get_available_experts(db:Session = Depends(get_db)):
 
-    experts = db.query(models.User).filter(models.User.role.in_(['admin','expert'])).all()
+    experts = db.query(models.User).filter(models.User.role.in_(['buyer','expert'])).all()
     return [{"id":e.id,"name":e.full_name,"profile_picture":e.profile_picture} for e in experts]
 
 
@@ -2794,7 +2794,7 @@ def get_available_experts(db:Session = Depends(get_db)):
 # ---------- Video Call: Get available experts ----------
 @app.get("/call/experts")
 def get_available_experts(db: Session = Depends(get_db), current_user: models.User = Depends(auth.get_current_user)):
-    experts = db.query(models.User).filter(models.User.role.in_(['admin'])).all()
+    experts = db.query(models.User).filter(models.User.role.in_(['buyer'])).all()
    
     return [
         {
